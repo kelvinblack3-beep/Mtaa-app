@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mtaa
+      POSTGRES_PASSWORD: mtaa_dev_password
+      POSTGRES_DB: mtaa
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mtaa -d mtaa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mtaa:mtaa_dev_password@db:5432/mtaa
+      DATABASE_URL_SYNC: postgresql://mtaa:mtaa_dev_password@db:5432/mtaa
+      SECRET_KEY: local-dev-secret-key-change-in-production-32chars
+      APP_ENV: development
+      DARAJA_MODE: simulation
+      SOLANA_NETWORK: devnet
+      FRONTEND_URL: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
